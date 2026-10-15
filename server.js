@@ -294,4 +294,62 @@ app.get("/api/stats", requireAccount, (req, res) => {
   res.json({ stats: store.stats(req.account.id), recent: store.recentLogs(req.account.id) });
 });
 
+// ---------- Legal pages (required by Meta to go Live) ----------
+const LEGAL_CSS = `body{font-family:system-ui,-apple-system,Segoe UI,sans-serif;max-width:760px;margin:40px auto;padding:0 20px;color:#23252b;line-height:1.6}h1{letter-spacing:-.02em}h2{margin-top:28px}a{color:#6366f1}small{color:#6c6f78}`;
+
+app.get("/privacy", (req, res) => {
+  res.send(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Privacy Policy — webandappmakers</title><style>${LEGAL_CSS}</style></head><body>
+  <h1>Privacy Policy</h1>
+  <small>Last updated: ${new Date().toISOString().slice(0,10)}</small>
+  <p>webandappmakers ("we", "our", "the app") provides an Instagram comment and direct-message
+  auto-reply service. This policy explains what we collect and how we use it.</p>
+  <h2>What we collect</h2>
+  <p>When you connect your Instagram account, we store your Instagram account ID, username, and an
+  access token issued by Instagram so the app can reply to comments and messages on your behalf.
+  We also store the auto-reply rules you create and a log of actions the app has taken (which
+  comment or message triggered a reply).</p>
+  <h2>How we use it</h2>
+  <p>We use this information solely to operate the auto-reply service you configured — reading new
+  comments and messages on your connected account and sending the replies you set up. We do not
+  sell your data or use it for advertising.</p>
+  <h2>Data sharing</h2>
+  <p>We do not share your data with third parties except as required to operate the service
+  (Instagram/Meta's APIs) or comply with the law.</p>
+  <h2>Data retention &amp; deletion</h2>
+  <p>You can disconnect at any time, which stops all processing. To request deletion of your data,
+  see our <a href="/data-deletion">Data Deletion</a> page or email us.</p>
+  <h2>Contact</h2>
+  <p>webandappmakers — <a href="https://webandappmakers.netlify.app">webandappmakers.netlify.app</a></p>
+  </body></html>`);
+});
+
+app.get("/data-deletion", (req, res) => {
+  res.send(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Data Deletion — webandappmakers</title><style>${LEGAL_CSS}</style></head><body>
+  <h1>Data Deletion Request</h1>
+  <small>Last updated: ${new Date().toISOString().slice(0,10)}</small>
+  <p>To delete the data associated with your Instagram account from webandappmakers:</p>
+  <ol>
+    <li>Open the app and click <b>Disconnect</b>, or remove the app from Instagram
+    (Settings → Apps and websites → Remove), which revokes our access immediately.</li>
+    <li>Email <b>bhargav13111999@gmail.com</b> with your Instagram username and the subject
+    "Data deletion". We will delete your stored account, tokens, rules, and logs within 30 days
+    and confirm by reply.</li>
+  </ol>
+  <p>Disconnecting stops all processing right away; the email step removes the stored records.</p>
+  </body></html>`);
+});
+
+app.get("/terms", (req, res) => {
+  res.send(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Terms — webandappmakers</title><style>${LEGAL_CSS}</style></head><body>
+  <h1>Terms of Service</h1>
+  <small>Last updated: ${new Date().toISOString().slice(0,10)}</small>
+  <p>By connecting your Instagram account to webandappmakers you authorise the app to read comments
+  and messages on your connected account and to send the automated replies you configure. You are
+  responsible for the content of your rules and for complying with Instagram's and Meta's platform
+  policies. The service is provided "as is" without warranty. You may disconnect at any time.</p>
+  <h2>Contact</h2>
+  <p>webandappmakers — <a href="https://webandappmakers.netlify.app">webandappmakers.netlify.app</a></p>
+  </body></html>`);
+});
+
 app.listen(PORT, () => console.log(`webandappmakers running on :${PORT}`));
