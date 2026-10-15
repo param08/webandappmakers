@@ -63,7 +63,7 @@ function ruleHtml(r) {
       </div>
     </div>
     <div class="row" style="margin-top:10px;align-items:center">
-      <div><label><input type="checkbox" style="width:auto" ${r.enabled?'checked':''} onchange="toggle(${r.id},this.checked)"> Enabled</label></div>
+      <div><label><input type="checkbox" style="width:auto" ${r.enabled?'checked':''} onchange="patch(${r.id},'enabled',this.checked);toggle(${r.id},this.checked)"> Enabled</label></div>
       <div style="text-align:right;flex:0"><button onclick="save(${r.id})" class="primary">Save</button>
       <button onclick="del(${r.id})">Delete</button></div>
     </div>
@@ -74,7 +74,16 @@ function esc(s){return String(s||"").replace(/"/g,'&quot;').replace(/</g,'&lt;')
 function find(id){return RULES.find(r=>r.id===id)}
 function patch(id,k,v){const r=find(id);if(r)r[k]=v;}
 function renderAfter(){renderRules();}
-async function save(id){const r=find(id);await api("/api/rules/"+id,{method:"PUT",body:JSON.stringify(r)});await loadRules();}
+async function save(id){
+  const r=find(id);
+  try{
+    const res=await api("/api/rules/"+id,{method:"PUT",body:JSON.stringify(r)});
+    if(res&&res.error){alert("Could not save: "+res.error+". Try reconnecting Instagram.");return;}
+    const btn=document.querySelector(`.rule[data-id="${id}"] button.primary`);
+    if(btn){const t=btn.textContent;btn.textContent="Saved ✓";setTimeout(()=>btn.textContent=t,1200);}
+    await loadRules();
+  }catch(e){alert("Could not save — check your connection.");}
+}
 async function toggle(id,on){await api("/api/rules/"+id+"/toggle",{method:"POST",body:JSON.stringify({enabled:on})});}
 async function del(id){await api("/api/rules/"+id,{method:"DELETE"});await loadRules();}
 async function newRule(){
