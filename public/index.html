@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>webandappmakers — Instagram auto-reply</title>
+<style>
+  :root{--bg:#f4f4f2;--surface:#fff;--surface-2:#faf9f7;--sunken:#efefeb;
+    --ink:#23252b;--muted:#6c6f78;--faint:#9a9ca4;--line:#eceae5;--line-2:#e2e0d9;--accent:#6366f1}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg);color:var(--ink)}
+  header{padding:18px 24px;border-bottom:1px solid var(--line);background:var(--surface);display:flex;align-items:center;justify-content:space-between}
+  .brand{font-weight:700;letter-spacing:-.02em}
+  main{max-width:860px;margin:0 auto;padding:28px 20px}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px;margin-bottom:18px}
+  button{font:inherit;cursor:pointer;border-radius:9px;border:1px solid var(--line-2);background:var(--surface-2);padding:9px 14px;color:var(--ink)}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .stats{display:flex;gap:14px;flex-wrap:wrap}
+  .stat{flex:1;min-width:120px;background:var(--surface-2);border:1px solid var(--line);border-radius:12px;padding:14px}
+  .stat b{font-size:26px;display:block}
+  .muted{color:var(--muted);font-size:14px}
+  label{display:block;font-size:13px;color:var(--muted);margin:8px 0 3px}
+  input,textarea,select{width:100%;font:inherit;padding:9px;border:1px solid var(--line-2);border-radius:8px;background:var(--surface)}
+  .rule{border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px}
+  .row{display:flex;gap:10px;flex-wrap:wrap}
+  .row>div{flex:1;min-width:200px}
+  .pill{font-size:12px;padding:2px 8px;border-radius:20px;background:var(--sunken);color:var(--muted)}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">webandappmakers</div>
+  <div id="who" class="muted">…</div>
+</header>
+<main>
+  <div id="connectCard" class="card" style="display:none">
+    <h2 style="margin-top:0">Connect your Instagram</h2>
+    <p class="muted">Connect an Instagram <b>Business</b> or <b>Creator</b> account (linked to a Facebook Page) to auto-reply to comments and DMs.</p>
+    <a href="/connect"><button class="primary">Connect Instagram</button></a>
+  </div>
+
+  <div id="app" style="display:none">
+    <div class="card">
+      <h3 style="margin-top:0">Activity</h3>
+      <div class="stats" id="stats"></div>
+    </div>
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <h3 style="margin:0">Auto-reply rules</h3>
+        <button class="primary" onclick="newRule()">+ New rule</button>
+      </div>
+      <p class="muted">Rules run top to bottom. Keyword rules match first; a “match everything” rule catches the rest.</p>
+      <div id="rules"></div>
+    </div>
+  </div>
+</main>
+<script src="/app.js"></script>
+</body>
+</html>
