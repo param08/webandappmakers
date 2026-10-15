@@ -4,20 +4,17 @@ const express = require("express");
 const session = require("express-session");
 const store = require("./db");
 
-const GRAPH = "https://graph.facebook.com/v21.0";
+// Instagram API with Instagram Login (no Facebook Page required)
+const IG_GRAPH = "https://graph.instagram.com/v23.0";
 const {
   APP_ID, APP_SECRET, VERIFY_TOKEN,
   BASE_URL, SESSION_SECRET, PORT = 3000,
 } = process.env;
 
 const SCOPES = [
-  "instagram_basic",
-  "instagram_manage_comments",
-  "instagram_manage_messages",
-  "pages_show_list",
-  "pages_manage_metadata",
-  "pages_read_engagement",
-  "business_management",
+  "instagram_business_basic",
+  "instagram_business_manage_comments",
+  "instagram_business_manage_messages",
 ].join(",");
 
 const app = express();
@@ -33,7 +30,7 @@ app.use(express.static(__dirname + "/public"));
 
 // ---------- helpers ----------
 async function graph(path, { method = "GET", token, body } = {}) {
-  const url = new URL(GRAPH + path);
+  const url = new URL(IG_GRAPH + path);
   if (token) url.searchParams.set("access_token", token);
   const opts = { method };
   if (body) { opts.headers = { "Content-Type": "application/json" }; opts.body = JSON.stringify(body); }
@@ -72,54 +69,76 @@ function sendDM(igId, token, recipientId, text) {
     body: { recipient: { id: recipientId }, message: { text } } });
 }
 
-// DM with a tappable button (Instagram button template) — used for the Follow ask
-function sendFollowButton(igId, token, recipientId, text, url) {
-  return graph(`/${igId}/messages`, { method: "POST", token,
-    body: {
-      recipient: { id: recipientId },
-      message: { attachment: { type: "template", payload: {
-        template_type: "button",
-        text: text || "Follow us first 👇",
-        buttons: [{ type: "web_url", url, title: "Follow us" }],
-      } } },
-    } });
+// Follow ask: try a tappable button template; fall back to plain text + link if IG rejects it.
+async function sendFollowButton(igId, token, recipientId, text, url) {
+  const body = {
+    recipient: { id: recipientId },
+    message: { attachment: { type: "template", payload: {
+      template_type: "button",
+      text: text || "Follow us first 👇",
+      buttons: [{ type: "web_url", url, title: "Follow us" }],
+    } } },
+  };
+  try {
+    return await graph(`/${igId}/messages`, { method: "POST", token, body });
+  } catch (e) {
+    console.error("button template failed, sending text:", e.message);
+    return sendDM(igId, token, recipientId, `${text || "Make sure you're following us first 👇"}\n${url}`);
+  }
 }
 
 // ---------- OAuth ----------
 app.get("/connect", (req, res) => {
   const redirect = `${BASE_URL}/auth/callback`;
-  const url = `https://www.facebook.com/v21.0/dialog/oauth?client_id=${APP_ID}` +
-    `&redirect_uri=${encodeURIComponent(redirect)}&scope=${SCOPES}&response_type=code`;
+  const url = `https://www.instagram.com/oauth/authorize?client_id=${APP_ID}` +
+    `&redirect_uri=${encodeURIComponent(redirect)}&response_type=code&scope=${encodeURIComponent(SCOPES)}`;
   res.redirect(url);
 });
 
 app.get("/auth/callback", async (req, res) => {
   try {
-    const { code } = req.query;
+    let { code } = req.query;
+    if (!code) return res.status(400).send("Missing authorization code.");
+    code = String(code).replace(/#_$/, ""); // IG appends a trailing #_
+
     const redirect = `${BASE_URL}/auth/callback`;
-    // code -> short token
-    const short = await graph(`/oauth/access_token?client_id=${APP_ID}` +
-      `&client_secret=${APP_SECRET}&redirect_uri=${encodeURIComponent(redirect)}&code=${code}`);
-    // short -> long-lived
-    const long = await graph(`/oauth/access_token?grant_type=fb_exchange_token` +
-      `&client_id=${APP_ID}&client_secret=${APP_SECRET}&fb_exchange_token=${short.access_token}`);
-    const userToken = long.access_token;
 
-    // find a Page with an attached IG business account
-    const pages = await graph(`/me/accounts?fields=id,name,access_token,instagram_business_account{id,username}`, { token: userToken });
-    const page = (pages.data || []).find(p => p.instagram_business_account);
-    if (!page) return res.status(400).send("No Instagram Business account is linked to your Facebook Page. Link it in Instagram > Settings > Account type, then try again.");
+    // 1) code -> short-lived Instagram user token (form POST to api.instagram.com)
+    const form = new URLSearchParams({
+      client_id: APP_ID, client_secret: APP_SECRET,
+      grant_type: "authorization_code", redirect_uri: redirect, code,
+    });
+    const sRes = await fetch("https://api.instagram.com/oauth/access_token", {
+      method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: form,
+    });
+    const sJson = await sRes.json().catch(() => ({}));
+    if (!sRes.ok) throw new Error("short-token: " + JSON.stringify(sJson));
+    const first = Array.isArray(sJson.data) ? sJson.data[0] : sJson;
+    const shortToken = first.access_token;
+    const igUserId = String(first.user_id);
 
-    const ig = page.instagram_business_account;
+    // 2) short -> long-lived token (~60 days)
+    const lRes = await fetch(`https://graph.instagram.com/access_token?grant_type=ig_exchange_token` +
+      `&client_secret=${encodeURIComponent(APP_SECRET)}&access_token=${encodeURIComponent(shortToken)}`);
+    const lJson = await lRes.json().catch(() => ({}));
+    if (!lRes.ok) throw new Error("long-token: " + JSON.stringify(lJson));
+    const token = lJson.access_token;
+
+    // 3) who is this? (username)
+    let username = null;
+    try {
+      const me = await graph(`/me?fields=user_id,username`, { token });
+      username = me.username || null;
+    } catch (e) { console.error("me:", e.message); }
+
     const acc = store.upsertAccount({
-      ig_user_id: ig.id, ig_username: ig.username || null,
-      page_id: page.id, access_token: page.access_token, // long-lived Page token
+      ig_user_id: igUserId, ig_username: username, page_id: null, access_token: token,
     });
     store.seedRules(acc.id);
 
-    // subscribe the app to comments + messages for this IG account
+    // 4) subscribe this IG account to comment + message webhooks
     try {
-      await graph(`/${page.id}/subscribed_apps?subscribed_fields=comments,messages`, { method: "POST", token: page.access_token });
+      await graph(`/${igUserId}/subscribed_apps?subscribed_fields=comments,messages`, { method: "POST", token });
     } catch (e) { console.error("subscribe error:", e.message); }
 
     req.session.accountId = acc.id;
